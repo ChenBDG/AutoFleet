@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <%- include('./partials/header')  %> 
+    <!-- Add more styles and scripts to basic header -->
+    <link rel="stylesheet" href="/stylesheets/selectedArea.css">
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.2.2/mapbox-gl-draw.js"></script>
+    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.2.2/mapbox-gl-draw.css" type="text/css">
+</head>
+<body class="d-flex flex-column vh-100">
+    <%- include('./partials/navbar')  %> 
+    <!-- map element and a p to show message to user -->
+    <div id="map">
+        <div class="info-box">
+            <p id="info">Click the map to draw a polygon</p>
+        </div>
+    </div>
+    
+    <script>
+        var markersObjects = []; //to manage markers layout
+        mapboxgl.accessToken = '<%= process.env.MAPBOX_TOKEN %>';
+        const map = new mapboxgl.Map({
+            container: 'map', 
+            style: 'mapbox://styles/mapbox/streets-v11', 
+            center: [-0.118092, 51.509865], 
+            zoom: 11 
+        });
+        
+        const draw = new MapboxDraw({
+            displayControlsDefault: false,
+            //map control buttons
+            controls: {
+            polygon: true,
+            trash: true
+        },
+        // allow user to draw polygon rigth away
+            defaultMode: 'draw_polygon'
+        });
+        map.addControl(draw);
+        
+        //set events listeners
+        map.on('draw.create', updateArea);
+        map.on('draw.delete', updateArea);
+        
+        //event action function
+        function updateArea(e) {
+            const answer = document.getElementById('info');
+            //if the action is a polygon creation
+            if(e.type == 'draw.create'){
+                const data = draw.getAll();
+                if (data.features.length > 0) {
+                    const polygon = turf.polygon([data.features[0].geometry.coordinates[0]]); //make polygon
+                    <%for(var i = 0; i<location.length; i++){%>
+                        var pt = turf.point([<%=location[i].lng%>, <%=location[i].lat%>]);
+                        var bool = turf.booleanPointInPolygon(pt, polygon); //check if the available location is in the polygon
+                        if(bool==true){ //if location is in polygon - add marker to map and markersObjects array 
+                            var marker = new mapboxgl.Marker().setLngLat([<%=location[i].lng%>, <%=location[i].lat%>])
+                            .addTo(map);
+                            markersObjects.push(marker);                            
+                        }
+                    <%}%>
+                    answer.innerHTML ='Available vehicles at chosen area';  //change p text 
+                }
+            } else { //deleting polygon
+                    answer.innerHTML = 'Click polygon button to draw again';
+                       for(var i=0; i<markersObjects.length; i++){
+                           var marker = markersObjects[i];
+                           marker.remove();
+                        }
+                        markersObjects = [];
+                }
+        }  
+    </script>
+    
+</body>
+</html>
+
